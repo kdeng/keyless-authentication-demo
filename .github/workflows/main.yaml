@@ -1,0 +1,64 @@
+name: Auth
+
+env:
+  GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+# This workflow is triggered on pushes to the repository.
+on:
+  push:
+    branches:
+    - main
+
+jobs:
+
+  test:
+    # Job name is verify
+    name: Auth
+
+    # This job runs on Linux
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v0.3.0
+
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: 'google-github-actions/auth@v0.4.0'
+      with:
+        create_credentials_file: true
+        workload_identity_provider: '${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}'
+        service_account: '${{ secrets.OIDC_AUTH_SA_EMAIL }}'
+
+    # - name: gcloud info
+    #   run: gcloud info
+    
+    #### Doesn't work!!!
+    - name: gsutil ls gs://kefeng-files/
+      run: |-
+        gcloud auth login --quiet --cred-file="${{ steps.auth.outputs.credentials_file_path }}"
+        gsutil config -a
+        gsutil version -l
+        # export GOOGLE_APPLICATION_CREDENTIALS="${{ steps.auth.outputs.credentials_file_path }}"
+        # gsutil ls gs://kefeng-files/
+
+    #### works !!!
+    - name: 'list buckets contents'
+      run: |-
+        curl https://storage.googleapis.com/storage/v1/b/kefeng-files/o \
+          --header "Authorization: Bearer ${{ steps.auth.outputs.access_token }}"
+
+    # #### WORKS !!!
+    # - id: get-credentials
+    #   uses: google-github-actions/get-gke-credentials@v0.4.0
+    #   with:
+    #     cluster_name: cluster-1
+    #     location: australia-southeast1
+
+    # # The KUBECONFIG env var is automatically exported and picked up by kubectl.
+    # - id: get-pods
+    #   run: kubectl get pods
